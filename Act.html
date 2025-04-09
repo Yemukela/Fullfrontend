@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>After School Activities</title>
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+  <script src="products.js"></script>    
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css"/>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1 @click="goHome" style="cursor: pointer;" title="Go to Home">{{ sitename }}</h1>
+
+      <input type="text" v-model="searchQuery" placeholder="Search activities..." />
+
+      <select v-model="sortOption">
+        <option value="priceAsc">Price: Low to High</option>
+        <option value="priceDesc">Price: High to Low</option>
+        <option value="nameAsc">Name: A-Z</option>
+        <option value="nameDesc">Name: Z-A</option>
+        <option value="locAsc">Location: A-Z</option>
+        <option value="locDesc">Location: Z-A</option>
+      </select>
+
+      <button v-if="cartItemCount > 0" v-on:click="showCheckout">
+        {{ cartItemCount }}
+        <span class="fas fa-cart-plus"></span> Checkout
+      </button>
+    </header>
+
+    <main>
+      <div v-if="showProduct">
+        <div v-for="product in sortedProducts" :key="product.id">
+          <h2 v-text="product.title"></h2>
+          <figure>
+            <img v-bind:src="product.image" />
+          </figure>
+          <p v-html="product.description"></p>
+          <p>Price: {{ product.price }}</p>
+          <p>Available stock: {{ product.availableInventory - cartCount(product.id) }}</p>
+
+          <button v-on:click="addToCart(product)" :disabled="!canAddToCart(product)">
+            Add to cart
+          </button>
+
+          <span v-if="product.availableInventory === cartCount(product.id)">All out!</span>
+          <span v-else-if="product.availableInventory - cartCount(product.id) < 5">
+            Only {{ product.availableInventory - cartCount(product.id) }} left!
+          </span>
+          <span v-else>Buy now!</span>
+        </div>
+      </div>
+
+      <div v-else>
+        <h2>Checkout</h2>
+
+        <h2>🧾 Order Summary</h2>
+        <table class="order-summary">
+          <thead>
+            <tr>
+              <th>Activity</th>
+              <th>Qty</th>
+              <th>Unit Price</th>
+              <th>Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(product, index) in cartDetails" :key="index">
+              <td>
+                <img :src="product.image" alt="product.title" style="width: 50px; height: auto; margin-right: 10px;">
+                {{ product.title }}
+              </td>
+              <td>
+                <button @click="decreaseQuantity(product.id)" :disabled="cartCount(product.id) <= 1">−</button>
+                {{ product.quantity }}
+                <button @click="increaseQuantity(product.id)" :disabled="!canAddToCart(product)">+</button>
+                <button class="remove-btn" @click="removeFromCart(product.id)">Remove</button>
+              </td>
+              <td>${{ product.price.toFixed(2) }}</td>
+              <td>${{ (product.price * product.quantity).toFixed(2) }}</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="3"><strong>Total</strong></td>
+              <td><strong>${{ cartTotal }}</strong></td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <p><strong>First Name:</strong> <input v-model.trim="order.firstName" /></p>
+        <p><strong>Last Name:</strong> <input v-model.trim="order.lastName" /></p>
+        <p><strong>Address:</strong> <input v-model="order.address" /></p>
+        <p><strong>City:</strong> <input v-model="order.city" /></p>
+        <p><strong>State:</strong>
+          <select v-model="order.state">
+            <option disabled value="">State</option>
+            <option v-for="(state, key) in states" v-bind:value="state">{{ key }}</option>
+          </select>
+        </p>
+        <p><strong>Zip / Postal Code:</strong> <input v-model.number="order.zip" type="number" /></p>
+
+        <p>
+          <input type="radio" id="home" value="Home" v-model="order.method" />
+          <label for="home">Home</label>
+          <input type="radio" id="business" value="Business" v-model="order.method" />
+          <label for="business">Business</label>
+        </p>
+
+        <h2>Order Information</h2>
+        <p>First Name: {{ order.firstName }}</p>
+        <p>Last Name: {{ order.lastName }}</p>
+        <p>Address: {{ order.address }}</p>
+        <p>City: {{ order.city }}</p>
+        <p>Zip: {{ order.zip }}</p>
+        <p>State: {{ order.state }}</p>
+
+        <button v-on:click="submitForm">Place Order</button>
+      </div>
+    </main>
+  </div>
+
+  <script type="text/javascript">
+    var webstore = new Vue({
+      el: '#app',
+      data: {
+        sitename: 'After School Activities',
+        products: products,
+        cart: [],
+        showProduct: true,
+        searchQuery: '',
+        sortOption: 'priceAsc',
+        order: {
+          firstName: '',
+          lastName: '',
+          address: '',
+          city: '',
+          zip: '',
+          state: '',
+          method: 'Home',
+        },
+        states: {
+          AL: 'Alabama',
+          AR: 'Arizona',
+          CA: 'California',
+          NV: 'Nevada'
+        },
+      },
+      methods: {
+        addToCart(product) {
+          if (this.canAddToCart(product)) {
+            this.cart.push(product.id);
+          }
+        },
+        removeFromCart(id) {
+          this.cart = this.cart.filter(item => item !== id);
+        },
+        increaseQuantity(id) {
+          const product = this.products.find(p => p.id === id);
+          if (product && this.canAddToCart(product)) {
+            this.cart.push(id);
+          }
+        },
+        decreaseQuantity(id) {
+          const index = this.cart.indexOf(id);
+          if (index !== -1) {
+            this.cart.splice(index, 1);
+          }
+        },
+        showCheckout() {
+          this.showProduct = false;
+        },
+        goHome() {
+          this.showProduct = true;
+        },
+        submitForm() {
+          if (
+            !this.order.firstName ||
+            !this.order.lastName ||
+            !this.order.address ||
+            !this.order.city ||
+            !this.order.state ||
+            !this.order.zip
+          ) {
+            alert('Please fill in all the required information before placing the order.');
+            return;
+          }
+          alert('Order submitted!');
+        },
+        canAddToCart(product) {
+          return product.availableInventory > this.cartCount(product.id);
+        },
+        cartCount(id) {
+          return this.cart.filter(item => item === id).length;
+        }
+      },
+      computed: {
+        cartItemCount() {
+          return this.cart.length;
+        },
+        sortedProducts() {
+          let sorted = this.products.slice().filter(product =>
+            product.title.toLowerCase().includes(this.searchQuery.toLowerCase())
+          );
+
+          if (this.sortOption === 'priceAsc') {
+            return sorted.sort((a, b) => a.price - b.price);
+          } else if (this.sortOption === 'priceDesc') {
+            return sorted.sort((a, b) => b.price - a.price);
+          } else if (this.sortOption === 'nameAsc') {
+            return sorted.sort((a, b) => a.title.localeCompare(b.title));
+          } else if (this.sortOption === 'nameDesc') {
+            return sorted.sort((a, b) => b.title.localeCompare(a.title));
+          }
+          return sorted;
+        },
+        cartDetails() {
+          let details = [];
+
+          this.cart.forEach(id => {
+            let found = details.find(item => item.id === id);
+            if (found) {
+              found.quantity++;
+            } else {
+              let product = this.products.find(p => p.id === id);
+              details.push({
+                id: product.id,
+                title: product.title,
+                price: product.price,
+                image: product.image,
+                quantity: 1
+              });
+            }
+          });
+
+          return details;
+        },
+        cartTotal() {
+          return this.cartDetails.reduce((total, item) => {
+            return total + item.price * item.quantity;
+          }, 0).toFixed(2);
+        }
+      }
+    });
+  </script>
+</body>
+</html>
