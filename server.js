@@ -6,11 +6,11 @@ import { fileURLToPath } from "url";
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Required for working with __dirname in ES modules
+// Required for __dirname in ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// 1. Middleware
+// === Middleware ===
 app.use(express.json());
 
 // Manual CORS Middleware
@@ -27,21 +27,21 @@ app.use((req, res, next) => {
   next();
 });
 
-// Log all incoming requests
+// Logger
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
   next();
 });
 
-// 2. Serve static files (HTML, JS, CSS, images)
+// Serve static files (HTML, CSS, JS, images)
 app.use(express.static(path.join(__dirname)));
 
-// Serve Act.html for root
+// Serve main HTML
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "Act.html"));
 });
 
-// 3. MongoDB setup
+// === MongoDB Setup ===
 const uri = process.env.MONGODB_URI || "mongodb+srv://yemun:yemukela12@cluster0.sudwv.mongodb.net/";
 const client = new MongoClient(uri);
 
@@ -53,12 +53,11 @@ async function run() {
     await client.connect();
     console.log("Connected to MongoDB");
 
-    const database = client.db("After_School");
-    lessonsCollection = database.collection("lessons");
-    ordersCollection = database.collection("orders");
+    const db = client.db("After_School");
+    lessonsCollection = db.collection("lessons");
+    ordersCollection = db.collection("orders");
 
-    // ---- LESSON ROUTES ----
-
+    // === LESSON ROUTES ===
     app.get("/lessons", async (req, res) => {
       try {
         const lessons = await lessonsCollection.find({}).toArray();
@@ -69,36 +68,8 @@ async function run() {
       }
     });
 
-    app.put("/lessons/:id", async (req, res) => {
-      try {
-        const lessonId = req.params.id;
-        const updateData = req.body;
-        const updateQuery = {};
-
-        if (updateData.$inc) updateQuery.$inc = updateData.$inc;
-        if (updateData.$set) updateQuery.$set = updateData.$set;
-        if (!updateQuery.$set && !updateQuery.$inc) {
-          updateQuery.$set = updateData;
-        }
-
-        const result = await lessonsCollection.updateOne(
-          { _id: new ObjectId(lessonId) },
-          updateQuery
-        );
-
-        if (result.matchedCount === 0) {
-          return res.status(404).json({ error: "Lesson not found" });
-        }
-        res.json({ message: "Lesson updated" });
-      } catch (error) {
-        console.error("Error updating lesson:", error);
-        res.status(500).json({ error: "Failed to update lesson" });
-      }
-    });
-
     app.get("/search", async (req, res) => {
       const query = (req.query.q || "").trim();
-
       try {
         if (!query) {
           const lessons = await lessonsCollection.find({}).toArray();
@@ -139,8 +110,35 @@ async function run() {
       }
     });
 
-    // ---- ORDERS ROUTES ----
+    app.put("/lessons/:id", async (req, res) => {
+      try {
+        const lessonId = req.params.id;
+        const updateData = req.body;
 
+        const updateQuery = {};
+        if (updateData.$inc) updateQuery.$inc = updateData.$inc;
+        if (updateData.$set) updateQuery.$set = updateData.$set;
+        if (!updateQuery.$set && !updateQuery.$inc) {
+          updateQuery.$set = updateData;
+        }
+
+        const result = await lessonsCollection.updateOne(
+          { _id: new ObjectId(lessonId) },
+          updateQuery
+        );
+
+        if (result.matchedCount === 0) {
+          return res.status(404).json({ error: "Lesson not found" });
+        }
+
+        res.json({ message: "Lesson updated" });
+      } catch (error) {
+        console.error("Error updating lesson:", error);
+        res.status(500).json({ error: "Failed to update lesson" });
+      }
+    });
+
+    // === ORDER ROUTES ===
     app.get("/orders", async (req, res) => {
       try {
         const orders = await ordersCollection.find({}).toArray();
@@ -155,6 +153,7 @@ async function run() {
       try {
         const order = req.body;
 
+        // Basic Validation
         if (
           !order.firstName ||
           !order.lastName ||
@@ -166,6 +165,7 @@ async function run() {
           return res.status(400).json({ error: "Missing required fields." });
         }
 
+        // Input validation
         const nameRegex = /^[A-Za-z]+$/;
         const phoneRegex = /^[0-9]{7,15}$/;
         const zipRegex = /^\d{5}$/;
@@ -180,53 +180,28 @@ async function run() {
           return res.status(400).json({ error: "Invalid phone number." });
         }
         if (order.method === "Home Delivery") {
-          if (!order.address || order.address.trim().length === 0) {
-            return res.status(400).json({ error: "Address is required." });
-          }
-          if (!zipRegex.test(String(order.zip))) {
-            return res.status(400).json({ error: "Invalid ZIP code." });
+          if (!order.address || !order.zip || !zipRegex.test(String(order.zip))) {
+            return res.status(400).json({ error: "Invalid address or ZIP." });
           }
         }
 
-        for (const item of order.lessons) {
-          const lesson = await lessonsCollection.findOne({
-            _id: new ObjectId(item.id),
-          });
-          if (!lesson || lesson.Space < item.quantity) {
-            return res.status(400).json({
-              error: `Not enough space in ${lesson?.LessonName || "lesson"}.`,
-            });
-          }
-
-          await lessonsCollection.updateOne(
-            { _id: new ObjectId(item.id) },
-            { $inc: { Space: -item.quantity } }
-          );
-
-          item.lessonId = lesson._id;
-          item.lessonName = lesson.LessonName;
-          delete item.id;
-        }
-
+        // Save order
         const result = await ordersCollection.insertOne(order);
-        res.status(201).json({
-          message: "Order created",
-          orderId: result.insertedId,
-        });
+        res.json({ message: "Order placed", orderId: result.insertedId });
       } catch (error) {
-        console.error("Order error:", error);
-        res.status(500).json({ error: "Internal server error" });
+        console.error("Error saving order:", error);
+        res.status(500).json({ error: "Failed to place order" });
       }
     });
 
-    // Start the server
+    // === Start Server ===
     app.listen(port, () => {
-      console.log(`Server is running on port ${port}`);
+      console.log(`Server running on http://localhost:${port}`);
     });
 
-  } catch (error) {
-    console.error("Failed to connect to MongoDB:", error);
+  } catch (err) {
+    console.error("MongoDB connection failed:", err);
   }
 }
 
-run().catch(console.dir);
+run();

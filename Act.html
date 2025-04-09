@@ -6,16 +6,13 @@
   <title>After School Activities</title>
   <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
   <script src="products.js"></script>    
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css"/>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div id="app">
     <header>
       <h1 @click="goHome" style="cursor: pointer;" title="Go to Home">{{ sitename }}</h1>
-
       <input type="text" v-model="searchQuery" placeholder="Search activities..." />
-
       <select v-model="sortOption">
         <option value="priceAsc">Price: Low to High</option>
         <option value="priceDesc">Price: High to Low</option>
@@ -24,7 +21,6 @@
         <option value="locAsc">Location: A-Z</option>
         <option value="locDesc">Location: Z-A</option>
       </select>
-
       <button v-if="cartItemCount > 0" v-on:click="showCheckout">
         {{ cartItemCount }}
         <span class="fas fa-cart-plus"></span> Checkout
@@ -32,20 +28,17 @@
     </header>
 
     <main>
+      <!-- Product Listing -->
       <div v-if="showProduct">
         <div v-for="product in sortedProducts" :key="product.id">
-          <h2 v-text="product.title"></h2>
-          <figure>
-            <img v-bind:src="product.image" />
-          </figure>
+          <h2>{{ product.title }}</h2>
+          <figure><img :src="product.image" /></figure>
           <p v-html="product.description"></p>
           <p>Price: {{ product.price }}</p>
           <p>Available stock: {{ product.availableInventory - cartCount(product.id) }}</p>
-
-          <button v-on:click="addToCart(product)" :disabled="!canAddToCart(product)">
+          <button @click="addToCart(product)" :disabled="!canAddToCart(product)">
             Add to cart
           </button>
-
           <span v-if="product.availableInventory === cartCount(product.id)">All out!</span>
           <span v-else-if="product.availableInventory - cartCount(product.id) < 5">
             Only {{ product.availableInventory - cartCount(product.id) }} left!
@@ -54,10 +47,9 @@
         </div>
       </div>
 
+      <!-- Checkout -->
       <div v-else>
         <h2>Checkout</h2>
-
-        <h2>🧾 Order Summary</h2>
         <table class="order-summary">
           <thead>
             <tr>
@@ -69,10 +61,7 @@
           </thead>
           <tbody>
             <tr v-for="(product, index) in cartDetails" :key="index">
-              <td>
-                <img :src="product.image" alt="product.title" style="width: 50px; height: auto; margin-right: 10px;">
-                {{ product.title }}
-              </td>
+              <td><img :src="product.image" style="width: 50px;" /> {{ product.title }}</td>
               <td>
                 <button @click="decreaseQuantity(product.id)" :disabled="cartCount(product.id) <= 1">−</button>
                 {{ product.quantity }}
@@ -91,40 +80,33 @@
           </tfoot>
         </table>
 
-        <p><strong>First Name:</strong> <input v-model.trim="order.firstName" /></p>
-        <p><strong>Last Name:</strong> <input v-model.trim="order.lastName" /></p>
+        <!-- Form -->
+        <p><strong>First Name:</strong> <input v-model="order.firstName" /></p>
+        <p><strong>Last Name:</strong> <input v-model="order.lastName" /></p>
+        <p><strong>Phone:</strong> <input v-model="order.phone" /></p>
         <p><strong>Address:</strong> <input v-model="order.address" /></p>
         <p><strong>City:</strong> <input v-model="order.city" /></p>
         <p><strong>State:</strong>
           <select v-model="order.state">
-            <option disabled value="">State</option>
-            <option v-for="(state, key) in states" v-bind:value="state">{{ key }}</option>
+            <option disabled value="">Select State</option>
+            <option v-for="(state, key) in states" :value="state">{{ key }}</option>
           </select>
         </p>
         <p><strong>Zip / Postal Code:</strong> <input v-model.number="order.zip" type="number" /></p>
-
         <p>
-          <input type="radio" id="home" value="Home" v-model="order.method" />
-          <label for="home">Home</label>
+          <input type="radio" id="home" value="Home Delivery" v-model="order.method" />
+          <label for="home">Home Delivery</label>
           <input type="radio" id="business" value="Business" v-model="order.method" />
           <label for="business">Business</label>
         </p>
 
-        <h2>Order Information</h2>
-        <p>First Name: {{ order.firstName }}</p>
-        <p>Last Name: {{ order.lastName }}</p>
-        <p>Address: {{ order.address }}</p>
-        <p>City: {{ order.city }}</p>
-        <p>Zip: {{ order.zip }}</p>
-        <p>State: {{ order.state }}</p>
-
-        <button v-on:click="submitForm">Place Order</button>
+        <button @click="submitForm">Place Order</button>
       </div>
     </main>
   </div>
 
-  <script type="text/javascript">
-    var webstore = new Vue({
+  <script>
+    const webstore = new Vue({
       el: '#app',
       data: {
         sitename: 'After School Activities',
@@ -136,39 +118,72 @@
         order: {
           firstName: '',
           lastName: '',
+          phone: '',
           address: '',
           city: '',
-          zip: '',
           state: '',
-          method: 'Home',
+          zip: '',
+          method: 'Home Delivery',
         },
         states: {
           AL: 'Alabama',
-          AR: 'Arizona',
           CA: 'California',
-          NV: 'Nevada'
+          NV: 'Nevada',
+          NY: 'New York'
+        }
+      },
+      computed: {
+        cartItemCount() {
+          return this.cart.length;
         },
+        cartDetails() {
+          let counts = {};
+          this.cart.forEach(id => counts[id] = (counts[id] || 0) + 1);
+          return this.products
+            .filter(p => counts[p.id])
+            .map(p => ({
+              ...p,
+              quantity: counts[p.id]
+            }));
+        },
+        cartTotal() {
+          return this.cartDetails.reduce((total, p) => total + p.price * p.quantity, 0).toFixed(2);
+        },
+        sortedProducts() {
+          let sorted = [...this.products].filter(p =>
+            p.title.toLowerCase().includes(this.searchQuery.toLowerCase())
+          );
+          const compareMap = {
+            priceAsc: (a, b) => a.price - b.price,
+            priceDesc: (a, b) => b.price - a.price,
+            nameAsc: (a, b) => a.title.localeCompare(b.title),
+            nameDesc: (a, b) => b.title.localeCompare(a.title),
+            locAsc: (a, b) => a.description.localeCompare(b.description),
+            locDesc: (a, b) => b.description.localeCompare(a.description),
+          };
+          return sorted.sort(compareMap[this.sortOption]);
+        }
       },
       methods: {
         addToCart(product) {
-          if (this.canAddToCart(product)) {
-            this.cart.push(product.id);
-          }
+          if (this.canAddToCart(product)) this.cart.push(product.id);
         },
         removeFromCart(id) {
           this.cart = this.cart.filter(item => item !== id);
         },
         increaseQuantity(id) {
           const product = this.products.find(p => p.id === id);
-          if (product && this.canAddToCart(product)) {
-            this.cart.push(id);
-          }
+          if (product && this.canAddToCart(product)) this.cart.push(id);
         },
         decreaseQuantity(id) {
           const index = this.cart.indexOf(id);
-          if (index !== -1) {
-            this.cart.splice(index, 1);
-          }
+          if (index !== -1) this.cart.splice(index, 1);
+        },
+        cartCount(id) {
+          return this.cart.filter(i => i === id).length;
+        },
+        canAddToCart(product) {
+          return product.availableInventory > this.cartCount(product.id);
         },
         showCheckout() {
           this.showProduct = false;
@@ -177,71 +192,43 @@
           this.showProduct = true;
         },
         submitForm() {
-          if (
-            !this.order.firstName ||
-            !this.order.lastName ||
-            !this.order.address ||
-            !this.order.city ||
-            !this.order.state ||
-            !this.order.zip
-          ) {
-            alert('Please fill in all the required information before placing the order.');
+          if (!this.order.firstName || !this.order.lastName || !this.order.phone || !this.order.address || !this.order.city || !this.order.state || !this.order.zip) {
+            alert("Please fill in all required fields.");
             return;
           }
-          alert('Order submitted!');
-        },
-        canAddToCart(product) {
-          return product.availableInventory > this.cartCount(product.id);
-        },
-        cartCount(id) {
-          return this.cart.filter(item => item === id).length;
-        }
-      },
-      computed: {
-        cartItemCount() {
-          return this.cart.length;
-        },
-        sortedProducts() {
-          let sorted = this.products.slice().filter(product =>
-            product.title.toLowerCase().includes(this.searchQuery.toLowerCase())
-          );
 
-          if (this.sortOption === 'priceAsc') {
-            return sorted.sort((a, b) => a.price - b.price);
-          } else if (this.sortOption === 'priceDesc') {
-            return sorted.sort((a, b) => b.price - a.price);
-          } else if (this.sortOption === 'nameAsc') {
-            return sorted.sort((a, b) => a.title.localeCompare(b.title));
-          } else if (this.sortOption === 'nameDesc') {
-            return sorted.sort((a, b) => b.title.localeCompare(a.title));
-          }
-          return sorted;
-        },
-        cartDetails() {
-          let details = [];
+          const payload = {
+            firstName: this.order.firstName,
+            lastName: this.order.lastName,
+            phone: this.order.phone,
+            address: this.order.address,
+            city: this.order.city,
+            state: this.order.state,
+            zip: this.order.zip,
+            method: this.order.method,
+            lessons: this.cartDetails.map(p => ({
+              id: p.id,
+              title: p.title,
+              quantity: p.quantity,
+              price: p.price
+            }))
+          };
 
-          this.cart.forEach(id => {
-            let found = details.find(item => item.id === id);
-            if (found) {
-              found.quantity++;
-            } else {
-              let product = this.products.find(p => p.id === id);
-              details.push({
-                id: product.id,
-                title: product.title,
-                price: product.price,
-                image: product.image,
-                quantity: 1
-              });
-            }
+          fetch("https://fullstackprojectbackend-tt3a.onrender.com/orders", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          })
+          .then(res => res.json())
+          .then(data => {
+            alert("Order placed successfully! Order ID: " + data.orderId);
+            this.cart = [];
+            this.goHome();
+          })
+          .catch(err => {
+            console.error("Error placing order:", err);
+            alert("Failed to place order.");
           });
-
-          return details;
-        },
-        cartTotal() {
-          return this.cartDetails.reduce((total, item) => {
-            return total + item.price * item.quantity;
-          }, 0).toFixed(2);
         }
       }
     });
