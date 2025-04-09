@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>After School Activities</title>
+  <!-- Include Vue.js -->
+  <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1 @click="goHome" style="cursor: pointer;" title="Go to Home">{{ sitename }}</h1>
+      <input type="text" v-model="searchQuery" placeholder="Search activities..." />
+      <select v-model="sortOption">
+        <option value="priceAsc">Price: Low to High</option>
+        <option value="priceDesc">Price: High to Low</option>
+        <option value="nameAsc">Name: A-Z</option>
+        <option value="nameDesc">Name: Z-A</option>
+        <option value="locAsc">Location: A-Z</option>
+        <option value="locDesc">Location: Z-A</option>
+      </select>
+      <button v-if="cartItemCount > 0" @click="showCheckout">
+        {{ cartItemCount }}
+        <span class="fas fa-cart-plus"></span> Checkout
+      </button>
+    </header>
+
+    <main>
+      <!-- Lesson List -->
+      <div v-if="showProduct">
+        <!-- Lesson Card -->
+        <div v-for="lesson in sortedLessons" :key="lesson._id">
+          <h2>{{ lesson.LessonName || lesson.title }}</h2>
+          <figure>
+            <img :src="lesson.image || getImage(lesson.LessonName)" alt="Lesson Image" />
+          </figure>
+          <p v-html="lesson.description"></p>
+          <p>Price: {{ lesson.Price || lesson.price }}</p>
+          <p>Available spaces: {{ lesson.Space !== undefined ? lesson.Space : (lesson.availableInventory - cartCount(lesson._id)) }}</p>
+          <button @click="addToCart(lesson)" :disabled="!canAddToCart(lesson)">
+            Add to cart
+          </button>
+          <span v-if="(lesson.Space !== undefined ? lesson.Space : lesson.availableInventory - cartCount(lesson._id)) === 0">
+            All out!
+          </span>
+          <span v-else-if="(lesson.Space !== undefined ? lesson.Space : lesson.availableInventory - cartCount(lesson._id)) < 5">
+            Only {{ lesson.Space !== undefined ? lesson.Space : lesson.availableInventory - cartCount(lesson._id) }} left!
+          </span>
+          <span v-else>Buy now!</span>
+        </div>
+      </div>
+
+      <!-- Checkout -->
+      <div v-else>
+        <h2>Checkout</h2>
+        <table class="order-summary">
+          <thead>
+            <tr>
+              <th>Activity</th>
+              <th>Qty</th>
+              <th>Unit Price</th>
+              <th>Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(lesson, index) in cartDetails" :key="index">
+              <td>
+                <img :src="lesson.image" style="width: 50px;" alt="Lesson Image" /> 
+                {{ lesson.LessonName || lesson.title }}
+              </td>
+              <td>
+                <button @click="decreaseQuantity(lesson._id)" :disabled="cartCount(lesson._id) <= 1">−</button>
+                {{ lesson.quantity }}
+                <button @click="increaseQuantity(lesson._id)" :disabled="!canAddToCart(lesson)">+</button>
+                <button class="remove-btn" @click="removeFromCart(lesson._id)">Remove</button>
+              </td>
+              <td>${{ (lesson.Price || lesson.price).toFixed(2) }}</td>
+              <td>${{ ((lesson.Price || lesson.price) * lesson.quantity).toFixed(2) }}</td>
+            </tr>
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="3"><strong>Total</strong></td>
+              <td><strong>${{ cartTotal }}</strong></td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <!-- Order Form -->
+        <div class="checkout-container">
+          <p><strong>First Name:</strong> <input v-model="order.firstName" /></p>
+          <p><strong>Last Name:</strong> <input v-model="order.lastName" /></p>
+          <p><strong>Phone:</strong> <input v-model="order.phone" /></p>
+          <p><strong>Address:</strong> <input v-model="order.address" /></p>
+          <p><strong>City:</strong> <input v-model="order.city" /></p>
+          <p><strong>State:</strong>
+            <select v-model="order.state">
+              <option disabled value="">Select State</option>
+              <option v-for="(state, key) in states" :value="state">{{ key }}</option>
+            </select>
+          </p>
+          <p><strong>Zip / Postal Code:</strong> <input v-model.number="order.zip" type="number" /></p>
+          <p>
+            <input type="radio" id="home" value="Home Delivery" v-model="order.method" />
+            <label for="home">Home Delivery</label>
+            <input type="radio" id="business" value="Business" v-model="order.method" />
+            <label for="business">Business</label>
+          </p>
+          <button @click="submitForm">Place Order</button>
+        </div>
+        <p v-if="confirmationMessage" class="confirmation">{{ confirmationMessage }}</p>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    new Vue({
+      el: '#app',
+      data: {
+        sitename: 'After School Activities',
+        lessons: [],        // Fetched lessons from back-end
+        cart: [],
+        showProduct: true,
+        searchQuery: '',
+        sortOption: 'priceAsc',
+        order: {
+          firstName: '',
+          lastName: '',
+          phone: '',
+          address: '',
+          city: '',
+          state: '',
+          zip: '',
+          method: 'Home Delivery',
+          lessons: []  // to be populated from cart details
+        },
+        states: {
+          AL: 'Alabama',
+          CA: 'California',
+          NV: 'Nevada',
+          NY: 'New York'
+        },
+        confirmationMessage: ""
+      },
+      computed: {
+        cartItemCount() {
+          return this.cart.length;
+        },
+        cartDetails() {
+          // Count product quantities based on lesson _id (fetched from MongoDB)
+          let counts = {};
+          this.cart.forEach(id => { counts[id] = (counts[id] || 0) + 1; });
+          return this.lessons
+            .filter(l => counts[l._id])
+            .map(l => ({ ...l, quantity: counts[l._id] }));
+        },
+        cartTotal() {
+          return this.cartDetails.reduce((total, l) => total + (l.Price || l.price) * l.quantity, 0).toFixed(2);
+        },
+        // Sorting and filtering lessons based on search and sort option
+        sortedLessons() {
+          let filtered = [...this.lessons];
+          // Note: if using search via fetch, this.lessons is already filtered.
+          const compareMap = {
+            priceAsc: (a, b) => (a.Price || a.price) - (b.Price || b.price),
+            priceDesc: (a, b) => (b.Price || b.price) - (a.Price || a.price),
+            nameAsc: (a, b) => (a.LessonName || a.title).localeCompare(b.LessonName || b.title),
+            nameDesc: (a, b) => (b.LessonName || b.title).localeCompare(a.LessonName || a.title),
+            locAsc: (a, b) => a.description.localeCompare(b.description),
+            locDesc: (a, b) => b.description.localeCompare(a.description)
+          };
+          return filtered.sort(compareMap[this.sortOption]);
+        }
+      },
+      created() {
+        // Load lessons when app is created
+        this.loadLessons();
+      },
+      watch: {
+        // "Search as you type" – whenever searchQuery changes, call searchLessons
+        searchQuery(newQuery) {
+          this.searchLessons(newQuery);
+        }
+      },
+      methods: {
+        // Fallback method to return an image based on lesson name (optional)
+        getImage(lessonName) {
+          // Return a placeholder image if none is provided
+          return "images/placeholder.png";
+        },
+        // Fetch all lessons from the back-end
+        async loadLessons() {
+          try {
+            const response = await fetch('/lessons');
+            if(response.ok) {
+              const data = await response.json();
+              this.lessons = data;
+            } else {
+              console.error("Failed to load lessons");
+            }
+          } catch (error) {
+            console.error("Error fetching lessons:", error);
+          }
+        },
+        // Search lessons with a query string – using back-end /search
+        async searchLessons(query) {
+          try {
+            // If no query, reload all lessons
+            if(!query.trim()){
+              this.loadLessons();
+              return;
+            }
+            const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
+            if(response.ok) {
+              const data = await response.json();
+              this.lessons = data;
+            } else {
+              console.error("Search failed");
+            }
+          } catch (error) {
+            console.error("Error in searchLessons:", error);
+          }
+        },
+        addToCart(lesson) {
+          if (this.canAddToCart(lesson)) this.cart.push(lesson._id);
+        },
+        removeFromCart(id) {
+          // Remove all instances of the product from the cart if needed
+          this.cart = this.cart.filter(item => item !== id);
+        },
+        increaseQuantity(id) {
+          const lesson = this.lessons.find(l => l._id === id);
+          if (lesson && this.canAddToCart(lesson)) this.cart.push(id);
+        },
+        decreaseQuantity(id) {
+          const index = this.cart.indexOf(id);
+          if (index !== -1) this.cart.splice(index, 1);
+        },
+        cartCount(id) {
+          return this.cart.filter(i => i === id).length;
+        },
+        canAddToCart(lesson) {
+          // Check based on available space (or inventory)
+          const available = lesson.Space !== undefined ? lesson.Space : lesson.availableInventory;
+          return available > this.cartCount(lesson._id);
+        },
+        showCheckout() {
+          this.showProduct = false;
+        },
+        goHome() {
+          this.showProduct = true;
+        },
+        // Form submission with validation, order POST and inventory update with PUT
+        async submitForm() {
+          // Validation: first/last name letters only, phone numbers only
+          const nameRegex = /^[A-Za-z]+$/;
+          const phoneRegex = /^[0-9]+$/;
+          if (!this.order.firstName.trim() || !nameRegex.test(this.order.firstName.trim())) {
+            alert("Invalid first name. Letters only.");
+            return;
+          }
+          if (!this.order.lastName.trim() || !nameRegex.test(this.order.lastName.trim())) {
+            alert("Invalid last name. Letters only.");
+            return;
+          }
+          if (!phoneRegex.test(this.order.phone.trim())) {
+            alert("Invalid phone number. Numbers only.");
+            return;
+          }
+          if (this.order.method === "Home Delivery") {
+            if (!this.order.address || !this.order.zip) {
+              alert("Please enter valid address and ZIP.");
+              return;
+            }
+          }
+          
+          // Prepare order object with lessons (ids and quantities)
+          const orderLessons = this.cartDetails.map(lesson => ({
+            lessonId: lesson._id,
+            quantity: lesson.quantity
+          }));
+          this.order.lessons = orderLessons;
+          
+          // Send order to back-end via POST
+          try {
+            const response = await fetch('/orders', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(this.order)
+            });
+            const result = await response.json();
+            if(response.ok) {
+              // For each ordered lesson, update the availability with a PUT request
+              for (let lessonDetail of this.cartDetails) {
+                // Use $inc to decrement availableInventory by the quantity ordered
+                await fetch(`/lessons/${lessonDetail._id}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ $inc: { availableInventory: -lessonDetail.quantity } })
+                });
+              }
+              // Clear cart and form data
+              this.cart = [];
+              this.order = { firstName: '', lastName: '', phone: '', address: '', city: '', state: '', zip: '', method: 'Home Delivery', lessons: [] };
+              // Reload lessons to reflect updated availability
+              await this.loadLessons();
+              // Display confirmation message
+              this.confirmationMessage = "Your order has been submitted successfully!";
+              // Optionally, switch back to product display after a short delay:
+              setTimeout(() => {
+                this.confirmationMessage = "";
+                this.goHome();
+              }, 3000);
+            } else {
+              alert(result.error || "Failed to place order");
+            }
+          } catch (error) {
+            console.error("Error during order submission:", error);
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>
