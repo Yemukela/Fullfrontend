@@ -1,0 +1,110 @@
+[{
+  "_id": {
+    "$oid": "67f694ce790bed7c207835b9"
+  },
+  "id": 1001,
+  "title": "Club: Soccer ",
+  "description": "Location: Shajarh || Time: 1-3 hours",
+  "price": 100,
+  "image": "images/football.png",
+  "availableInventory": 10
+},
+{
+  "_id": {
+    "$oid": "67f694ce790bed7c207835ba"
+  },
+  "id": 1002,
+  "title": "Club: Basketball",
+  "description": "Location: Dubai || Time: 1-3 hours",
+  "price": 10,
+  "image": "images/basketball.png",
+  "availableInventory": 6
+},
+{
+  "_id": {
+    "$oid": "67f694ce790bed7c207835bb"
+  },
+  "id": 1003,
+  "title": "Club: Chess",
+  "description": "Location: Sharjah || Time: 1-3 hours",
+  "price": 30,
+  "image": "images/chess.png",
+  "availableInventory": 10
+},
+{
+  "_id": {
+    "$oid": "67f694ce790bed7c207835bc"
+  },
+  "id": 1004,
+  "title": "Club: Public Speaking",
+  "description": "Location: Deira || Time: 1-3 hours",
+  "price": 40,
+  "image": "images/publicspeak.png",
+  "availableInventory": 10
+},
+{
+  "_id": {
+    "$oid": "67f694ce790bed7c207835bd"
+  },
+  "id": 1005,
+  "title": "Club: Maths",
+  "description": "Location: Abu Dhabi || Time: 1-3 hours",
+  "price": 40,
+  "image": "images/maths.png",
+  "availableInventory": 10
+},
+{
+  "_id": {
+    "$oid": "67f694ce790bed7c207835be"
+  },
+  "id": 1006,
+  "title": "Club: English",
+  "description": "Location: Dubai || Time: 1-3 hours",
+  "price": 40,
+  "image": "images/english.png",
+  "availableInventory": 10
+},
+{
+  "_id": {
+    "$oid": "67f694ce790bed7c207835bf"
+  },
+  "id": 1007,
+  "title": "Club: Arts",
+  "description": "Location: Sharjah || Time: 1-3 hours",
+  "price": 40,
+  "image": "images/art.png",
+  "availableInventory": 10
+},
+{
+  "_id": {
+    "$oid": "67f694ce790bed7c207835c0"
+  },
+  "id": 1008,
+  "title": "Club: Design and Technology",
+  "description": "Location: Deira || Time: 1-3 hours",
+  "price": 40,
+  "image": "images/design.png",
+  "availableInventory": 10
+},
+{
+  "_id": {
+    "$oid": "67f694ce790bed7c207835c1"
+  },
+  "id": 1009,
+  "title": "Club: Photography",
+  "description": "Location: Abu Dhabi || Time: 1-3 hours",
+  "price": 40,
+  "image": "images/photos.png",
+  "availableInventory": 10
+},
+{
+  "_id": {
+    "$oid": "67f694ce790bed7c207835c2"
+  },
+  "id": 1010,
+  "title": "Club: Tennis",
+  "description": "Location: Downtown || Time: 1-3 hours",
+  "price": 60,
+  "image": "images/tennis.png",
+  "availableInventory": 10
+}]
